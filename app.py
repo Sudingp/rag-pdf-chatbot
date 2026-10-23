@@ -1,58 +1,54 @@
 import streamlit as st
-from pypdf import PdfReader
-from sentence_transformers import SentenceTransformer
-import faiss
-import numpy as np
-from transformers import pipeline
+
+from ragbot.pipeline import RagPipeline, load_models, read_pdf
 
 st.title("📄 PDF RAG Chatbot (No API Version)")
 
 uploaded_file = st.file_uploader("Upload PDF", type="pdf")
 
+
 @st.cache_resource
-def load_models():
-    embed_model = SentenceTransformer("all-MiniLM-L6-v2")
-    qa_pipeline = pipeline("question-answering",
-                           model="distilbert-base-cased-distilled-squad")
-    return embed_model, qa_pipeline
+def get_models(reader):
+    return load_models(reader)
 
-def read_pdf(file):
-    reader = PdfReader(file)
-    text = ""
-    for page in reader.pages:
-        t = page.extract_text()
-        if t:
-            text += t + "\n"
-    return text
 
-def chunk_text(text, size=900):
-    return [text[i:i+size] for i in range(0, len(text), size)]
+with st.sidebar:
+    st.header("Settings")
+    reader = st.radio(
+        "Answer model",
+        ["extractive", "generative", "llm", "azure"],
+        format_func=lambda r: {"extractive": "DistilBERT (copies a span)",
+                               "generative": "Flan-T5 (writes the answer)",
+                               "llm": "Hosted LLM: Gemini / Groq / Ollama (see .env)",
+                               "azure": "Azure OpenAI GPT (needs API key)"}[r],
+    )
+    overlap = st.slider("Chunk overlap (characters)", 0, 400, 0, step=50)
+    min_score = st.slider(
+        "Minimum answer confidence (0 = always answer)", 0.0, 1.0, 0.0, step=0.05
+    )
 
 if uploaded_file:
-
-    embed_model, qa_pipeline = load_models()
-
-    text = read_pdf(uploaded_file)
-    chunks = chunk_text(text)
-
-    embeddings = embed_model.encode(chunks)
-
-    dim = embeddings.shape[1]
-    index = faiss.IndexFlatL2(dim)
-    index.add(np.array(embeddings))
+    try:
+        embed, qa = get_models(reader)
+    except RuntimeError as err:  # e.g. Azure settings missing
+        st.error(str(err))
+        st.stop()
+    # Flan-T5 reads at most 512 tokens, so it gets smaller, fewer chunks.
+    size, k = {"extractive": (900, 6), "generative": (500, 3), "azure": (900, 4), "llm": (900, 4)}[reader]
+    rag = RagPipeline(
+        embed, qa, chunk_size=size, k=k, overlap=overlap,
+        min_score=min_score if min_score > 0 else None,
+    ).index_text(read_pdf(uploaded_file))
 
     question = st.text_input("Ask a question")
 
     if question:
-        q_emb = embed_model.encode([question])
-        D, I = index.search(np.array(q_emb), k=6)
-
-        context = " ".join([chunks[i] for i in I[0]])
-
-        result = qa_pipeline(
-            question=question,
-            context=context
-        )
-
+        answer = rag.ask(question)
         st.write("### Answer:")
-        st.write(result["answer"])
+        st.write(answer.text)
+        st.caption(f"Confidence: {answer.score:.2f}")
+        if answer.truncated:
+            st.caption("Note: the retrieved context was cut to fit the model's 512-token limit.")
+        if answer.trace:
+            with st.expander("Why this answer? (evidence, tool calls, guardrails)"):
+                st.json(answer.trace)

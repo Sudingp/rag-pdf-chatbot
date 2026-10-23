@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+# Per-run evaluation output (keep evals/baseline.json and sweep results you want to publish)
+evals/results/*.json
+
+# Secrets
+.env

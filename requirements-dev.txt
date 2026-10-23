@@ -1,0 +1,8 @@
+# Needed only to run tests / regenerate the evaluation PDF (no model downloads)
+pytest>=7.0.0
+faiss-cpu
+numpy
+pypdf
+reportlab>=4.0
+openai>=1.40
+deepeval>=4.3,<5
