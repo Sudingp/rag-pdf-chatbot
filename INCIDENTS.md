@@ -4,6 +4,62 @@ Failures found in the chatbot, why they happened, and how they were fixed. Newes
 
 ---
 
+## INC-004: The knowledge-graph scorer marked correct answers wrong
+
+| | |
+|---|---|
+| **Found** | 2026-11-01, reading the first live `evals.kg_eval` report case by case |
+| **Severity** | Medium: the evaluation under-reported both the graph and RAG |
+| **Status** | Fixed (`evals/kg_eval.py`, `normalize_answer`); the saved run was re-scored with `--rescore` |
+| **Regression test** | `tests/test_kg.py::test_scorer_handles_the_unicode_models_write` |
+
+**What happened.** The report said RAG got question g6 (cheque costs) completely wrong, but its answer was
+right: "each additional 25-leaf book Rs 75; stop-payment instruction Rs 100 per cheque". Several graph
+answers had the same problem, such as "Rs 500" not being counted.
+
+**Root cause.** The model writes typographic characters: a narrow no-break space in "Rs 500" (U+202F), a
+non-breaking hyphen in "stop-payment" (U+2011), the rupee sign instead of "Rs", and curly apostrophes in
+"banks' ATMs". The scorer's patterns expected plain ASCII, so correct answers did not match. Two patterns
+were also too strict ("first 25-leaf cheque book" did not match "first cheque book").
+
+**Fix.** Answers are normalised before scoring (Unicode NFKC, dashes to "-", curly quotes to straight,
+the rupee sign to "Rs"), and the strict patterns were loosened. `--rescore` re-judges a saved run without
+calling the model again, so the same answers were scored by the fixed scorer.
+
+**Golden-set review in the same pass.** The model extracted 2 charges the golden set lacked: the first five
+free withdrawals at the bank's ATMs and the first three free ones at other banks' ATMs. Both are real, so
+they were added and marked `added_after_review`. Before this review the extraction precision was 90.9%.
+
+**Lesson.** Read the cases, not only the totals. A scorer is code and can be wrong too.
+
+---
+
+## INC-003: Knowledge-graph run stopped by Groq's per-minute token limit
+
+| | |
+|---|---|
+| **Found** | 2026-11-01, first live run of `python -m evals.kg_eval --rag` |
+| **Severity** | Medium: the run crashed halfway and nothing was saved |
+| **Status** | Fixed (`ragbot/llm_retry.py`) |
+| **Regression test** | `tests/test_llm_retry.py` |
+
+**What happened.** Extraction of all 9 chunks finished, then the run crashed at question g3 with
+`429 Rate limit reached for model openai/gpt-oss-120b ... tokens per minute (TPM): Limit 8000, Used 5704,
+Requested 3521. Please try again in 9.1875s.`
+
+**Root cause.** Each extraction call sends a whole 900-character chunk plus instructions, and the graph
+questions add tool results to every follow-up call. Nine back-to-back calls exceeded the free tier's
+8,000 tokens per minute. Nothing in the run retried, so one 429 lost all the work done so far.
+
+**Fix.** Every call in the knowledge-graph run (extraction, graph answers and the RAG comparison) now goes
+through `RetryingClient`, which waits the time the provider asks for ("try again in 9.1875s", plus 1s)
+and falls back to exponential backoff when the error gives no hint. Other errors still fail immediately.
+
+**Detection going forward.** Tests replay Groq's exact error message and check the wait, the backoff and
+that non-429 errors are not retried.
+
+---
+
 ## INC-001: Fresh install crashes on the first question (transformers 5)
 
 | | |

@@ -12,7 +12,7 @@ This project is a Retrieval-Augmented Generation (RAG) based chatbot that answer
 - Runs fully offline (no API key required)
 
 ## Tech Stack
-Python, Streamlit, FAISS, SentenceTransformers, Transformers
+Python, Streamlit, FAISS, SentenceTransformers, Transformers, OpenAI-compatible LLM APIs, NetworkX, DeepEval
 
 ## How It Works
 1. Extract text from PDF
@@ -162,12 +162,101 @@ reused from the saved run, so the reader is not called again. Rate limits (HTTP 
 backoff, a malformed judge reply is recorded as a judge error instead of ending the run, and every
 case where the judge and the exact checks disagree is listed for review.
 
+### Is the confidence worth anything? (calibration)
+The hosted reader reports a confidence with every answer. `evals/calibration.py` checks it two ways,
+because a model can pass one and fail the other:
+
+- **Calibration:** when it says 0.9, is it right about 90% of the time? (reliability table, ECE, Brier score)
+- **Discrimination:** are its right answers more confident than its wrong ones? (AUROC: 0.5 means the
+  confidence tells you nothing; plus a table of coverage and accuracy if the bot only answers above a threshold)
+
+On the saved Groq run (44 questions the model actually saw; the 4 prompt injections were refused before
+reaching it):
+
+| Signal | Accuracy | Mean confidence | Distinct values | ECE | Brier | AUROC |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Model's own confidence | 93.2% | 0.90 | 1 | 0.032 | 0.065 | **0.500** |
+
+The model said "high" for **every** answer, including all 3 wrong ones (fact-05, para-03, para-04). The ECE
+looks excellent only because its overall accuracy happens to sit near 0.9; AUROC 0.5 shows the confidence
+cannot separate right answers from wrong ones, so it is useless as an abstain threshold. Lesson: report
+discrimination alongside calibration, or a constant guess looks well calibrated.
+
+Every answer now also records `retrieval_score` (cosine similarity between the question and the best
+retrieved chunk), so the next run can test whether retrieval strength predicts correctness better:
+
+```bash
+python -m evals.calibration evals/results/<run>.json        # writes <run>_calibration.md
+```
+
+## Knowledge graph of the charges
+
+Plain RAG sees only the top-k chunks, so a question whose answer is spread across the document ("which
+services are free?", "which charges cost more than Rs 100?") gets a partial answer. `ragbot/kg.py` extracts
+the facts once into a graph and answers those questions with graph queries instead.
+
+```
+PDF chunks ──► LLM (forced submit_facts call) ──► quote check ──► merge ──► NetworkX graph ──► tools ──► LLM answer
+               charges: service, amount|percent,     drop facts     dedupe     Account ─HAS_CHARGE─► Charge
+               unit, free?, quote                    whose quote    overlap    Group ─EXEMPT_FROM─► Charge
+               exemptions: group, charge, quote      isn't in chunk  chunks
+```
+
+- **Grounded extraction:** every fact must carry a quote copied from its chunk; facts whose quote is not
+  there are dropped and counted, the same guardrail as the reader.
+- **Graph tools:** `list_charges(min_rs, max_rs, free_only)`, `find_exemptions(group)` and
+  `search_charges(text)`. The LLM picks the tools by function calling and answers only from their results.
+- **Evaluation (`evals/kg_eval.py`):** extracted facts are scored against 20 hand-checked charges and 3
+  exemptions (`evals/data/golden_kg.json`, every quote verified verbatim in the PDF by a test) with precision,
+  recall and F1. A charge is correct only if both the service and the amount match; a right service with a
+  wrong amount is reported separately, since "misread the number" and "never found it" need different fixes.
+  Then 6 questions spread across the document are answered by the graph and by RAG, and both answers are
+  scored the same way: which golden charges each answer mentions (precision and recall per question).
+
+```bash
+python -m evals.kg_eval          # extraction scores + graph answers (needs the LLM_* settings in .env)
+python -m evals.kg_eval --rag    # also ask the same 6 questions through RAG, side by side
+python -m evals.kg_eval --rescore evals/results/<run>_kg.json   # re-score a saved run, no LLM calls
+```
+
+### Results (live run, 1 November 2026, Groq `openai/gpt-oss-120b`, 9 chunks)
+
+| Extraction | Extracted | Expected | Correct | Precision | Recall | F1 |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Charges (service and amount) | 22 | 22 | 22 | 100% | 100% | 100% |
+| Exemptions | 4 | 3 | 2 | 50% | 66.7% | 57.1% |
+
+| 6 questions spread across the document | Precision | Recall |
+| :--- | ---: | ---: |
+| Graph (LLM + graph tools) | 88.9% | 100% |
+| RAG (same LLM, top-4 chunks) | 33.3% | 33.3% |
+
+How the numbers were reached, and what they hide:
+
+- **Scorer bug found and fixed (INC-004).** The first report under-counted correct answers because the
+  model writes "Rs 500" with a narrow no-break space, the rupee sign and non-breaking hyphens. After
+  normalising, the saved answers were re-scored with `--rescore`; the model was not run again.
+- **Golden set reviewed.** The model extracted 2 charges the golden set lacked (the free first five and
+  first three ATM withdrawals). Both are real, so they were added and marked `added_after_review`.
+  Precision before that review: 20 of 22, **90.9%** (F1 95.2%).
+- **The quote guardrail worked.** One fact was dropped because the model shortened its quote to
+  "NEFT ... transfers"; NEFT/RTGS was still covered by a separate RTGS fact.
+- **Exemptions are the weak part.** The model missed "a customer who does not accept a change may close
+  without a closure charge" and instead modelled "accounts closed within 14 days / after 12 months" as
+  exemptions from the closure charge. Those are real facts, but the golden set records them as free
+  services, so one fact can fit two shapes in the schema. That is a schema design issue, not only a model error.
+- **RAG fails on spread-out questions.** It said "Not found in the document" for 4 of 6 questions; the
+  reader sees only 4 chunks and is told to answer briefly. It was right on the two questions whose answer
+  sits in one place (the most expensive charge, cheque costs).
+- **One graph miss is the question's fault.** For "every charge that is Rs 50 or less" the graph also
+  listed the 10 free services (Rs 0), which is literally true; the golden answer counts only paid charges.
+
 ### Tests
 ```bash
 pip install -r requirements-dev.txt
 python -m pytest
 ```
-The tests use fake models, so they run in about a second with no downloads. If torch and
+The tests use fake models and a fake LLM client, so they run in about two seconds with no downloads or API calls. If torch and
 transformers are installed, `tests/test_generative_smoke.py` also runs the real Flan-T5 code path
 on a tiny randomly initialised T5.
 

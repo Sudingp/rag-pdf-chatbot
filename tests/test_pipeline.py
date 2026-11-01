@@ -103,3 +103,11 @@ def test_truncation_flag_is_passed_through(embed):
 def test_unknown_reader_rejected():
     with pytest.raises(ValueError, match="Unknown reader"):
         load_models("gpt")
+
+
+def test_retrieval_score_is_recorded_in_the_trace(embed, scripted_qa):
+    from ragbot.pipeline import RagPipeline
+    pipe = RagPipeline(embed, scripted_qa({"What is the ATM limit?": ("Rs 40,000", 0.8)}), chunk_size=60, k=2)
+    pipe.index_text("The daily ATM cash withdrawal limit is Rs 40,000. Cheque books cost Rs 75 each.")
+    ans = pipe.ask("What is the ATM limit?")
+    assert 0.0 < ans.trace["retrieval_score"] <= 1.0

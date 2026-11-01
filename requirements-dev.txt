@@ -6,3 +6,4 @@ pypdf
 reportlab>=4.0
 openai>=1.40
 deepeval>=4.3,<5
+networkx>=3.0            # knowledge graph (ragbot/kg.py)

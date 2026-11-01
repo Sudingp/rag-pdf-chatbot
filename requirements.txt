@@ -9,3 +9,4 @@ sentencepiece
 openai>=1.40
 python-dotenv
 deepeval>=4.3,<5        # LLM-as-judge metrics (evals/deepeval_eval.py)
+networkx>=3.0            # knowledge graph (ragbot/kg.py)

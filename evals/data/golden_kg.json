@@ -1,0 +1,383 @@
+{
+ "_about": "Hand-checked facts for the knowledge-graph extraction eval. Every quote must appear word for word in the PDF (checked by tests/test_kg.py). amount_rs is the charge in rupees (0 = free); percent is used instead for percentage penalties. answer_pattern is a regex used to detect the charge in a free-text answer when scoring the graph-vs-RAG questions. Charges marked added_after_review were missing from the first version of this file; the model extracted them, and a check against the PDF showed they are real facts.",
+ "charges": [
+  {
+   "id": "c01",
+   "service": "Minimum balance shortfall charge",
+   "aliases": [
+    "shortfall charge",
+    "minimum balance charge",
+    "monthly average balance shortfall"
+   ],
+   "amount_rs": 150,
+   "unit": "per month",
+   "quote": "a shortfall charge of Rs 150 plus applicable taxes is applied on the first working day of the following month",
+   "answer_pattern": "shortfall|minimum (average )?balance|average balance"
+  },
+  {
+   "id": "c02",
+   "service": "Additional cash withdrawal at Kestrel Valley ATMs",
+   "aliases": [
+    "additional cash withdrawal",
+    "extra withdrawal at own ATM",
+    "Kestrel Valley ATM withdrawal beyond free limit"
+   ],
+   "amount_rs": 20,
+   "unit": "each",
+   "quote": "Each additional cash withdrawal costs Rs 20.",
+   "answer_pattern": "additional cash withdrawal|\\badditional[^.\\n]{0,30}kestrel valley atm|kestrel valley atms?[^.\\n]{0,15}\\(?(?:each|after|beyond)|\\brs ?20(?:\\.0+)?(?![\\d,]|\\.\\d)"
+  },
+  {
+   "id": "c03",
+   "service": "Withdrawal at other banks' ATMs after three free",
+   "aliases": [
+    "other bank ATM withdrawal",
+    "other banks' ATMs",
+    "non-Kestrel ATM withdrawal"
+   ],
+   "amount_rs": 21,
+   "unit": "each",
+   "quote": "Withdrawals at other banks' ATMs are free for the first three per month and cost Rs 21 each after that.",
+   "answer_pattern": "other banks?'? atms?[^.\\n]{0,25}(?:after|each|beyond)|\\brs ?21\\b"
+  },
+  {
+   "id": "c04",
+   "service": "NEFT and RTGS transfers through internet banking",
+   "aliases": [
+    "NEFT transfer",
+    "RTGS transfer",
+    "NEFT/RTGS"
+   ],
+   "amount_rs": 0,
+   "unit": "",
+   "quote": "NEFT and RTGS transfers made through internet banking are free of charge.",
+   "answer_pattern": "neft|rtgs"
+  },
+  {
+   "id": "c05",
+   "service": "Additional cheque book of 25 leaves",
+   "aliases": [
+    "additional cheque book",
+    "extra cheque book",
+    "cheque book"
+   ],
+   "amount_rs": 75,
+   "unit": "each",
+   "quote": "Each additional cheque book of 25 leaves costs Rs 75.",
+   "answer_pattern": "additional (?:25-leaf )?cheque book|additional[^.\\n]{0,20}book|\\brs ?75\\b"
+  },
+  {
+   "id": "c06",
+   "service": "Stop-payment instruction on a cheque",
+   "aliases": [
+    "stop payment",
+    "stop-payment instruction",
+    "cheque stop payment"
+   ],
+   "amount_rs": 100,
+   "unit": "per cheque",
+   "quote": "A stop-payment instruction on a cheque costs Rs 100 per cheque.",
+   "answer_pattern": "stop[- ]payment"
+  },
+  {
+   "id": "c07",
+   "service": "Reactivation of an inoperative account",
+   "aliases": [
+    "reactivation",
+    "account reactivation",
+    "reactivating inoperative account"
+   ],
+   "amount_rs": 0,
+   "unit": "",
+   "quote": "No charge is levied for reactivation.",
+   "answer_pattern": "reactivat"
+  },
+  {
+   "id": "c08",
+   "service": "Account closure after 14 days and within 12 months",
+   "aliases": [
+    "closure charge",
+    "account closure",
+    "early account closure"
+   ],
+   "amount_rs": 500,
+   "unit": "one-time",
+   "quote": "An account closed after 14 days and within 12 months of opening attracts a closure charge of Rs 500.",
+   "answer_pattern": "closure charge of rs\\.? ?500|\\brs\\.? ?500\\b|within 12 months"
+  },
+  {
+   "id": "c09",
+   "service": "Replacement debit card",
+   "aliases": [
+    "debit card replacement",
+    "replacement card",
+    "new debit card"
+   ],
+   "amount_rs": 200,
+   "unit": "each",
+   "quote": "A replacement debit card costs Rs 200 and is delivered within 7 working days.",
+   "answer_pattern": "replacement (debit )?card|\\brs\\.? ?200\\b"
+  },
+  {
+   "id": "c10",
+   "service": "Premature withdrawal of a fixed deposit",
+   "aliases": [
+    "premature withdrawal penalty",
+    "fixed deposit premature closure",
+    "FD penalty"
+   ],
+   "percent": 1.0,
+   "unit": "percent of interest rate",
+   "quote": "minus a premature withdrawal penalty of 1.00%",
+   "answer_pattern": "premature|\\b1\\.00?%"
+  },
+  {
+   "id": "c11",
+   "service": "Missed recurring deposit instalment",
+   "aliases": [
+    "missed instalment penalty",
+    "recurring deposit penalty",
+    "RD missed instalment"
+   ],
+   "amount_rs": 1.5,
+   "unit": "per Rs 100 of instalment",
+   "quote": "A missed instalment attracts a penalty of Rs 1.50 for every Rs 100 of the instalment.",
+   "answer_pattern": "missed (recurring deposit )?instalment|\\brs\\.? ?1\\.50?\\b"
+  },
+  {
+   "id": "c12",
+   "service": "Adding, changing or cancelling a nomination",
+   "aliases": [
+    "nomination change",
+    "nominee change",
+    "nomination"
+   ],
+   "amount_rs": 0,
+   "unit": "",
+   "quote": "A nomination can be added, changed or cancelled at any time free of charge",
+   "answer_pattern": "nominat"
+  },
+  {
+   "id": "c13",
+   "service": "Monthly emailed account statement",
+   "aliases": [
+    "emailed statement",
+    "email statement",
+    "monthly statement"
+   ],
+   "amount_rs": 0,
+   "unit": "",
+   "quote": "Account statements are emailed monthly free of charge.",
+   "answer_pattern": "statements?[^.\\n]{0,30}email|email(ed)?[^.\\n]{0,30}statement"
+  },
+  {
+   "id": "c14",
+   "service": "Printed statement requested at a branch",
+   "aliases": [
+    "printed statement",
+    "branch statement",
+    "physical statement"
+   ],
+   "amount_rs": 50,
+   "unit": "per statement",
+   "quote": "A printed statement requested at a branch costs Rs 50 per statement.",
+   "answer_pattern": "printed statement|\\brs\\.? ?50(?:\\.0+)?(?![\\d,]|\\.\\d)"
+  },
+  {
+   "id": "c15",
+   "service": "SMS alerts",
+   "aliases": [
+    "SMS alert charge",
+    "SMS alert",
+    "text alerts"
+   ],
+   "amount_rs": 15,
+   "unit": "per quarter",
+   "quote": "the SMS alert charge is Rs 15 per quarter",
+   "answer_pattern": "\\bsms\\b"
+  },
+  {
+   "id": "c16",
+   "service": "Email alerts",
+   "aliases": [
+    "email alert",
+    "e-mail alerts"
+   ],
+   "amount_rs": 0,
+   "unit": "",
+   "quote": "Email alerts are free.",
+   "answer_pattern": "email alerts?"
+  },
+  {
+   "id": "c17",
+   "service": "Failed standing instruction",
+   "aliases": [
+    "standing instruction failure",
+    "failed standing instruction charge",
+    "standing instruction"
+   ],
+   "amount_rs": 250,
+   "unit": "each",
+   "quote": "Each failed standing instruction attracts a charge of Rs 250.",
+   "answer_pattern": "standing instruction"
+  },
+  {
+   "id": "c18",
+   "service": "First cheque book of the financial year",
+   "aliases": [
+    "first cheque book",
+    "free cheque book"
+   ],
+   "amount_rs": 0,
+   "unit": "",
+   "quote": "The first cheque book of 25 leaves in each financial year is free.",
+   "answer_pattern": "first (?:25-leaf )?cheque book"
+  },
+  {
+   "id": "c19",
+   "service": "Account closure within 14 days of opening",
+   "aliases": [
+    "closure within 14 days",
+    "early closure free"
+   ],
+   "amount_rs": 0,
+   "unit": "",
+   "quote": "An account closed within 14 days of opening is closed free of charge.",
+   "answer_pattern": "within 14 days"
+  },
+  {
+   "id": "c20",
+   "service": "Account closure after 12 months",
+   "aliases": [
+    "closure after 12 months",
+    "closing after a year"
+   ],
+   "amount_rs": 0,
+   "unit": "",
+   "quote": "No charge applies to accounts closed after 12 months.",
+   "answer_pattern": "after 12 months"
+  },
+  {
+   "id": "c21",
+   "service": "First five cash withdrawals per month at Kestrel Valley ATMs",
+   "aliases": [
+    "free withdrawals at Kestrel Valley ATMs",
+    "cash withdrawal at Kestrel Valley ATMs first five"
+   ],
+   "amount_rs": 0,
+   "unit": "",
+   "quote": "Customers may make up to five free cash withdrawals per calendar month at Kestrel Valley ATMs.",
+   "added_after_review": "2026-11-01: extracted by the first live run, checked against the PDF and found correct",
+   "answer_pattern": "first five|five free"
+  },
+  {
+   "id": "c22",
+   "service": "First three withdrawals per month at other banks' ATMs",
+   "aliases": [
+    "free withdrawals at other banks' ATMs",
+    "withdrawal at other banks' ATMs first three"
+   ],
+   "amount_rs": 0,
+   "unit": "",
+   "quote": "Withdrawals at other banks' ATMs are free for the first three per month",
+   "added_after_review": "2026-11-01: extracted by the first live run, checked against the PDF and found correct",
+   "answer_pattern": "first three"
+  }
+ ],
+ "exemptions": [
+  {
+   "id": "e01",
+   "group": "Junior accounts",
+   "aliases": [
+    "junior account",
+    "minors"
+   ],
+   "charge": "c01",
+   "quote": "No shortfall charge applies to junior accounts, or to accounts held by customers aged 60 or above."
+  },
+  {
+   "id": "e02",
+   "group": "Customers aged 60 or above",
+   "aliases": [
+    "senior citizens",
+    "customers aged 60",
+    "aged 60 or above"
+   ],
+   "charge": "c01",
+   "quote": "No shortfall charge applies to junior accounts, or to accounts held by customers aged 60 or above."
+  },
+  {
+   "id": "e03",
+   "group": "Customers who do not accept a change to the terms",
+   "aliases": [
+    "customer who does not accept a change",
+    "during the notice period",
+    "rejecting a change to terms"
+   ],
+   "charge": "c08",
+   "quote": "A customer who does not accept a change may close the account without a closure charge during the notice period."
+  }
+ ],
+ "questions": [
+  {
+   "id": "g1",
+   "question": "Which charges on the Everyday Savings Account cost more than Rs 100?",
+   "expected": [
+    "c01",
+    "c08",
+    "c09",
+    "c17"
+   ]
+  },
+  {
+   "id": "g2",
+   "question": "Which services are free of charge?",
+   "expected": [
+    "c04",
+    "c07",
+    "c12",
+    "c13",
+    "c16",
+    "c18",
+    "c19",
+    "c20",
+    "c21",
+    "c22"
+   ]
+  },
+  {
+   "id": "g3",
+   "question": "Which charges are customers aged 60 or above exempt from?",
+   "expected": [
+    "c01"
+   ]
+  },
+  {
+   "id": "g4",
+   "question": "List every charge that is Rs 50 or less.",
+   "expected": [
+    "c02",
+    "c03",
+    "c11",
+    "c14",
+    "c15"
+   ]
+  },
+  {
+   "id": "g5",
+   "question": "What is the most expensive charge, and how much is it?",
+   "expected": [
+    "c08"
+   ]
+  },
+  {
+   "id": "g6",
+   "question": "What do cheque books and cheque-related services cost?",
+   "expected": [
+    "c05",
+    "c06",
+    "c18"
+   ]
+  }
+ ]
+}

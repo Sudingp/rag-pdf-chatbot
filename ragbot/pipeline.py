@@ -247,24 +247,34 @@ class RagPipeline:
         embeddings = np.asarray(self.embed(self.chunks), dtype="float32")
         self.index = faiss.IndexFlatL2(embeddings.shape[1])
         self.index.add(embeddings)
+        norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+        self._unit = embeddings / np.where(norms == 0, 1, norms)  # for retrieval_score
         return self
 
     def retrieve(self, question: str) -> List[int]:
+        return self.retrieve_scored(question)[0]
+
+    def retrieve_scored(self, question: str):
+        """Chunk ids, plus the cosine similarity between the question and the best chunk.
+        The similarity is recorded so evals/calibration.py can test it as a confidence signal."""
         if self.index is None:
             raise RuntimeError("Call index_text() first")
         q = np.asarray(self.embed([question]), dtype="float32")
         _, ids = self.index.search(q, min(self.k, len(self.chunks)))
-        return [int(i) for i in ids[0] if i >= 0]
+        ids = [int(i) for i in ids[0] if i >= 0]
+        qn = np.linalg.norm(q[0])
+        top = float(self._unit[ids[0]] @ (q[0] / qn)) if ids and qn else 0.0
+        return ids, round(top, 4)
 
     def ask(self, question: str) -> Answer:
-        ids = self.retrieve(question)
+        ids, retrieval_score = self.retrieve_scored(question)
         context = " ".join(self.chunks[i] for i in ids)
         result = self.qa(question, context)
         raw = str(result["answer"]).strip()
         score = float(result.get("score", 0.0))
         truncated = bool(result.get("truncated", False))
         refused = bool(result.get("refused", False))
-        trace = result.get("trace", {})
+        trace = dict(result.get("trace") or {}, retrieval_score=retrieval_score)
         if refused or (self.min_score is not None and score < self.min_score):
             return Answer(NO_ANSWER, score, True, ids, context, raw, truncated, trace)
         return Answer(raw, score, False, ids, context, raw, truncated, trace)
