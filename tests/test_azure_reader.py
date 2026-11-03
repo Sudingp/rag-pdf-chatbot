@@ -259,6 +259,21 @@ def test_provider_that_rejects_response_format_with_tools_gets_the_answer_tool()
     assert len(client.requests) == 4 and "response_format" not in client.requests[3]
 
 
+# The exact text of the error the deployed app showed on 3 Nov 2026 (INC-005).
+GROQ_COMBO_LIVE = Exception("Error code: 400 - {'error': {'message': 'json mode cannot be combined with "
+                            "tool/function calling', 'type': 'invalid_request_error'}}")
+
+
+def test_live_groq_wording_without_param_still_falls_back():
+    """INC-005: Groq's message no longer names response_format; the reader must still step down."""
+    read, client = reader_with(GROQ_COMBO_LIVE, GROQ_COMBO_LIVE,
+                               submit("Rs 40,000", "The daily ATM cash withdrawal limit is Rs 40,000."))
+    out = read("What is the ATM limit?", CONTEXT)
+    assert out["answer"] == "Rs 40,000" and not out["refused"]
+    assert out["trace"]["structured_output"] == "answer via submit_answer tool"
+    assert "response_format" not in client.requests[2]
+
+
 def test_calculator_then_submit_answer():
     read, client = reader_with(GROQ_COMBO, GROQ_COMBO, tool_call("6.80 + 0.50"),
                                submit("7.30% per annum", "Senior citizens aged 60 or above receive an additional 0.50% per annum"))

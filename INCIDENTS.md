@@ -4,6 +4,43 @@ Failures found in the chatbot, why they happened, and how they were fixed. Newes
 
 ---
 
+## INC-005: First cloud deploy: four setup failures, then INC-002 came back on the live URL
+| | |
+|---|---|
+| **Found** | 2026-11-03, first deploy to Google Cloud Run (asia-south1) and the first question on the live URL |
+| **Severity** | High: the public app showed a raw Python traceback and answered nothing with the Groq reader |
+| **Status** | Fixed |
+| **Regression tests** | `test_live_groq_wording_without_param_still_falls_back` |
+
+**What happened.**
+1. `gcloud run deploy` failed because the default compute service account did not exist yet;
+   enabling `compute.googleapis.com` created it.
+2. Cloud Build then failed with `403 storage.objects.get` for that service account; granting it
+   `roles/run.builder` fixed the build.
+3. The laptop lost DNS mid-deploy (`NameResolutionError`) and gcloud crashed, although the build
+   kept running in the cloud. The finished image was deployed directly with `--image`.
+4. The service went live, and the first question failed with
+   `400 - json mode cannot be combined with tool/function calling`, shown as a full traceback.
+
+**Root cause.** The reader steps down to the `submit_answer` tool mode only when the error text
+contains one of a list of keywords. The INC-002 test replayed an error that also carried
+`'param': 'response_format'`, so it matched on that word. The error Groq returned on the
+deployed app had no `param`, and none of its words were in the list, so the reader re-raised
+instead of falling back. The fake error was close to the real one but not identical, and the
+test passed for the wrong reason.
+
+**Fix.** The keyword list now also matches `json mode`, `cannot be combined` and
+`function calling`, and a new test replays the exact live message. `app.py` catches any reader
+failure, logs it to Cloud Run's logs and shows a short message instead of the traceback, and the
+container runs Streamlit with `--client.showErrorDetails=false` so no error detail reaches a
+public visitor.
+
+**Detection going forward.** Regression tests copy provider errors verbatim from the live
+failure, not from memory. Reader errors on the deployed app are visible with
+`gcloud run services logs read rag-pdf-chatbot --region asia-south1`.
+
+---
+
 ## INC-004: The knowledge-graph scorer marked correct answers wrong
 
 | | |

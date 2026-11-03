@@ -1,0 +1,14 @@
+# Keep secrets and bulky local files out of the image
+.env
+.env.*
+!.env.example
+.git
+.github
+.venv
+venv
+__pycache__
+*.pyc
+.pytest_cache
+evals/
+tests/
+*.md

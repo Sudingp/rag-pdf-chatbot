@@ -1,0 +1,12 @@
+# What the deployed web app needs (no evaluation or test tools).
+# torch comes from the CPU-only index in the Dockerfile, which keeps the image far smaller.
+streamlit>=1.38
+faiss-cpu
+sentence-transformers
+transformers
+pypdf
+numpy
+sentencepiece
+openai>=1.40
+python-dotenv
+networkx>=3.0

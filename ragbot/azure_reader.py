@@ -172,9 +172,15 @@ TOOL_PROMPT = (" When you have the answer, call the submit_answer tool with: ans
 LOOSE_TOOL = {"type": "function", "function": {k: v for k, v in CALCULATOR_TOOL["function"].items() if k != "strict"}}
 
 
+# Words a provider uses when it refuses an output mode. Groq's live error (INC-005) is just
+# "json mode cannot be combined with tool/function calling", with no "response_format" in it.
+_MODE_REFUSALS = ("response_format", "json_schema", "strict", "structured output",
+                  "json mode", "cannot be combined", "function calling")
+
+
 def _schema_not_supported(exc: Exception) -> bool:
     msg = str(exc).lower()
-    return any(k in msg for k in ("response_format", "json_schema", "strict", "structured output"))
+    return any(k in msg for k in _MODE_REFUSALS)
 
 
 def _parse_json(text: str) -> dict:
