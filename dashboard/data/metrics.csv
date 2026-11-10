@@ -1,0 +1,46 @@
+evaluation,system,metric,value,unit,n
+RAG golden set,openai/gpt-oss-120b,pass_rate,0.9375,ratio,48
+RAG golden set,openai/gpt-oss-120b,answerable_em,0.8947,ratio,48
+RAG golden set,openai/gpt-oss-120b,answerable_f1,0.9447,ratio,48
+RAG golden set,openai/gpt-oss-120b,retrieval_hit_rate,0.9459,ratio,48
+RAG golden set,openai/gpt-oss-120b,hallucination_rate,0.0,ratio,48
+RAG golden set,openai/gpt-oss-120b,guardrail_breach_rate,0.0,ratio,48
+RAG golden set,openai/gpt-oss-120b,wrong_abstain_rate,0.0263,ratio,48
+RAG golden set,openai/gpt-oss-120b,grounded_rate,0.8919,ratio,48
+RAG golden set,openai/gpt-oss-120b,median_latency_ms,8417.4,ms,48
+RAG golden set by category,adversarial,pass_rate,1.0,ratio,4
+RAG golden set by category,distractor,pass_rate,1.0,ratio,6
+RAG golden set by category,factual,pass_rate,0.9,ratio,10
+RAG golden set by category,numeric,pass_rate,1.0,ratio,14
+RAG golden set by category,paraphrase,pass_rate,0.6667,ratio,6
+RAG golden set by category,reasoning,pass_rate,1.0,ratio,2
+RAG golden set by category,unanswerable,pass_rate,1.0,ratio,6
+Confidence calibration,reader confidence,accuracy,0.9318,ratio,44
+Confidence calibration,reader confidence,mean_confidence,0.9,ratio,44
+Confidence calibration,reader confidence,ece,0.0318,ratio,44
+Confidence calibration,reader confidence,brier,0.0645,ratio,44
+Confidence calibration,reader confidence,auroc,0.5,ratio,44
+Knowledge-graph extraction: charges,LLM extraction,precision,1.0,ratio,22
+Knowledge-graph extraction: charges,LLM extraction,recall,1.0,ratio,22
+Knowledge-graph extraction: charges,LLM extraction,f1,1.0,ratio,22
+Knowledge-graph extraction: exemptions,LLM extraction,precision,0.5,ratio,3
+Knowledge-graph extraction: exemptions,LLM extraction,recall,0.6667,ratio,3
+Knowledge-graph extraction: exemptions,LLM extraction,f1,0.5714,ratio,3
+List questions: graph vs RAG (mean per question),Knowledge graph + tools,precision,0.8889,ratio,6
+List questions: graph vs RAG (mean per question),Knowledge graph + tools,recall,1.0,ratio,6
+List questions: graph vs RAG (mean per question),Knowledge graph + tools,f1,0.9167,ratio,6
+List questions: graph vs RAG (mean per question),RAG,precision,0.3333,ratio,6
+List questions: graph vs RAG (mean per question),RAG,recall,0.3333,ratio,6
+List questions: graph vs RAG (mean per question),RAG,f1,0.3333,ratio,6
+NER: rupee charge amounts,spaCy en_core_web_sm (pretrained),precision,0.0,ratio,11
+NER: rupee charge amounts,spaCy en_core_web_sm (pretrained),recall,0.0,ratio,11
+NER: rupee charge amounts,spaCy en_core_web_sm (pretrained),f1,0.0,ratio,11
+NER: rupee charge amounts,+ currency EntityRuler,precision,0.5,ratio,11
+NER: rupee charge amounts,+ currency EntityRuler,recall,1.0,ratio,11
+NER: rupee charge amounts,+ currency EntityRuler,f1,0.6667,ratio,11
+NER: rupee charge amounts,+ currency EntityRuler + charge relation rule,precision,1.0,ratio,11
+NER: rupee charge amounts,+ currency EntityRuler + charge relation rule,recall,1.0,ratio,11
+NER: rupee charge amounts,+ currency EntityRuler + charge relation rule,f1,1.0,ratio,11
+NER: rupee charge amounts,"LLM extraction (openai/gpt-oss-120b, forced function calls)",precision,1.0,ratio,11
+NER: rupee charge amounts,"LLM extraction (openai/gpt-oss-120b, forced function calls)",recall,1.0,ratio,11
+NER: rupee charge amounts,"LLM extraction (openai/gpt-oss-120b, forced function calls)",f1,1.0,ratio,11

@@ -1,0 +1,13 @@
+question_id,question,system,precision,recall,f1,expected_items
+g1,Which charges on the Everyday Savings Account cost more than Rs 100?,Knowledge graph + tools,1.0,1.0,1.0,4
+g1,Which charges on the Everyday Savings Account cost more than Rs 100?,RAG,0.0,0.0,0.0,4
+g2,Which services are free of charge?,Knowledge graph + tools,1.0,1.0,1.0,10
+g2,Which services are free of charge?,RAG,0.0,0.0,0.0,10
+g3,Which charges are customers aged 60 or above exempt from?,Knowledge graph + tools,1.0,1.0,1.0,1
+g3,Which charges are customers aged 60 or above exempt from?,RAG,0.0,0.0,0.0,1
+g4,List every charge that is Rs 50 or less.,Knowledge graph + tools,0.3333,1.0,0.5,5
+g4,List every charge that is Rs 50 or less.,RAG,0.0,0.0,0.0,5
+g5,"What is the most expensive charge, and how much is it?",Knowledge graph + tools,1.0,1.0,1.0,1
+g5,"What is the most expensive charge, and how much is it?",RAG,1.0,1.0,1.0,1
+g6,What do cheque books and cheque-related services cost?,Knowledge graph + tools,1.0,1.0,1.0,3
+g6,What do cheque books and cheque-related services cost?,RAG,1.0,1.0,1.0,3

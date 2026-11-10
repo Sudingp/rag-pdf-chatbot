@@ -2,6 +2,8 @@
 
 This project is a Retrieval-Augmented Generation (RAG) based chatbot that answers questions from uploaded PDF documents using local transformer models and vector search.
 
+**Live demo:** https://rag-pdf-chatbot-631970366044.asia-south1.run.app (Google Cloud Run, Mumbai region; password-protected to protect the LLM key, so ask me for access).
+
 ## Features
 - PDF text extraction
 - Text chunking
@@ -12,7 +14,7 @@ This project is a Retrieval-Augmented Generation (RAG) based chatbot that answer
 - Runs fully offline (no API key required)
 
 ## Tech Stack
-Python, Streamlit, FAISS, SentenceTransformers, Transformers, OpenAI-compatible LLM APIs, NetworkX, DeepEval
+Python, Streamlit, FAISS, SentenceTransformers, Transformers, OpenAI-compatible LLM APIs, NetworkX, DeepEval, Docker, Google Cloud Run / Azure Container Apps
 
 ## How It Works
 1. Extract text from PDF
@@ -93,6 +95,64 @@ not retrieved. The answer was right, possibly by luck, and only the exact check 
 
 The first live run also found a real integration bug (Groq refuses JSON output mode together with
 tool calling), now handled and logged as INC-002 in [INCIDENTS.md](INCIDENTS.md).
+
+## Deploy to the cloud
+
+**Live deployment (3 November 2026).** Running on Google Cloud Run in `asia-south1` with the
+Groq-hosted `openai/gpt-oss-20b` reader, the API key and app password in Secret Manager, 2 GiB
+memory, scale-to-zero and at most 2 instances. The first deploy hit four setup failures and one
+live-only bug; all are written up in [INCIDENTS.md](INCIDENTS.md) (INC-005).
+
+The app ships as a Docker image (`Dockerfile`) that runs on **Google Cloud Run**, **Azure Container
+Apps** or any Docker host. Both cloud options below build the image in the cloud, so Docker is not
+needed on your machine.
+
+**What the image does**
+- CPU-only PyTorch (the GPU build is several GB larger and a cloud container has no GPU).
+- The embedding model and DistilBERT are downloaded at build time, so the first visitor does not wait.
+- Runs as a non-root user and listens on `$PORT`; Streamlit's `/_stcore/health` is the health check.
+- `.dockerignore` keeps `.env`, `.git`, tests and evaluation results out of the image.
+
+**Settings (environment variables on the cloud service, never in the image)**
+
+| Variable | Purpose |
+| :--- | :--- |
+| `LLM_BASE_URL`, `LLM_MODEL` | Hosted LLM for the `llm` reader (e.g. Groq) |
+| `LLM_API_KEY` | Stored as a **secret** (Secret Manager / Container Apps secret), not a plain variable |
+| `APP_PASSWORD` | If set, visitors must enter it; stops strangers using up the API key |
+| `MAX_QUESTIONS_PER_SESSION` | Questions per browser session (default 20) |
+| `MAX_UPLOAD_MB` | Largest PDF accepted (default 10) |
+| `DEFAULT_READER` | Reader selected on load: `extractive`, `generative`, `llm` or `azure` |
+
+### CI/CD with Azure Pipelines
+
+`azure-pipelines.yml` runs on every push to `main` (and on pull requests into it):
+
+1. **Test:** clean virtual environment, `pytest`, JUnit results published to the run.
+2. **Security:** installs the app's own dependencies (the same set the Docker image ships) and
+   scans them with `pip-audit` for known vulnerabilities.
+3. **Deploy:** `main` only, after a manual approval on the `production` environment. Cloud Build
+   builds the image, Cloud Run rolls out a new revision, and a smoke test checks the live
+   health endpoint.
+
+How to deploy, read logs, roll back and rotate secrets is in [DEPLOYMENT.md](DEPLOYMENT.md).
+
+### Google Cloud Run
+```bash
+gcloud run deploy rag-pdf-chatbot --source . --region asia-south1 \
+  --memory 2Gi --cpu 1 --min-instances 0 --max-instances 2 --allow-unauthenticated \
+  --set-env-vars LLM_BASE_URL=https://api.groq.com/openai/v1,LLM_MODEL=openai/gpt-oss-20b,DEFAULT_READER=llm \
+  --set-secrets LLM_API_KEY=groq-api-key:latest,APP_PASSWORD=app-password:latest
+```
+`--min-instances 0` scales to zero when nobody is using it, and `--max-instances 2` caps the cost.
+
+### Azure Container Apps
+```bash
+az containerapp up --name rag-pdf-chatbot --resource-group rag-rg --location centralindia \
+  --source . --ingress external --target-port 8080
+```
+Then add the settings and secrets under the app's **Settings → Secrets / Environment variables**,
+and set CPU 1 / memory 2Gi under **Scale and replicas**.
 
 ## Evaluation Harness
 
@@ -263,3 +323,51 @@ on a tiny randomly initialised T5.
 ### App settings added
 The sidebar now has an **answer model** switch (DistilBERT or Flan-T5), **chunk overlap** and **minimum answer confidence** (below the threshold the app
 answers "Not found in the document."). The defaults reproduce the original behaviour.
+
+## Named-entity recognition for charge amounts
+
+`evals/ner_eval.py` asks a narrower question than the knowledge graph: can classical NER find the
+**rupee amounts that are charges**? It is scored on the 11 paid charges in
+`evals/data/golden_kg.json` with the same matcher for every system: the amount must equal a golden
+charge's amount and the sentence must overlap its quote; duplicates count as false positives.
+
+| System | Found | Correct | Precision | Recall | F1 |
+|---|---|---|---|---|---|
+| spaCy `en_core_web_sm`, pretrained MONEY entities | 0 | 0 | 0.0% | 0.0% | 0.0% |
+| + EntityRuler for Indian currency (`Rs`, `INR`, `₹` + number) | 22 | 11 | 50.0% | 100.0% | 66.7% |
+| + charge relation rule | 11 | 11 | 100.0% | 100.0% | 100.0% |
+| LLM extraction (gpt-oss-120b, forced function calls, run of 1 Nov) | 11 | 11 | 100.0% | 100.0% | 100.0% |
+
+**What it shows**
+- The pretrained model found **no** money at all: it does not know `Rs` as a currency and tags
+  every amount as a plain number. One EntityRuler pattern, added before the statistical NER,
+  fixed recall completely.
+- Recognising an amount is not the same as knowing it is a charge: half of the 22 amounts are
+  balances, limits and thresholds ("limit is Rs 40,000", "for every Rs 100"). A relation rule
+  (the sentence must talk about a cost, and the words just before the amount must not make it a
+  limit) removed all 11 false positives.
+- **Caveat:** the cue words were written for this document and there is no held-out document, so
+  the 100% shows the approach works here, not that the rules generalise. The LLM reached the same
+  result with no document-specific rules, and it also extracts what an amount extractor cannot:
+  service names, free services and exemptions.
+
+```bash
+pip install spacy && python -m spacy download en_core_web_sm
+python -m evals.ner_eval        # uses the latest evals/results/*_kg.json for the LLM row
+```
+
+## Product brief and evaluation dashboard
+
+- [`docs/PRODUCT.md`](docs/PRODUCT.md): users, what works today, and a prioritised backlog of
+  user stories whose acceptance criteria are measured on the golden set. Reading the failures
+  case by case showed that 2 of the 3 failures are correct answers the strict scorer marked
+  partial, so fixing the metric comes before changing the model.
+- [`docs/backlog_jira.csv`](docs/backlog_jira.csv): the same stories, ready for Jira's CSV import.
+- `python -m evals.export_dashboard` reshapes saved runs into tidy CSVs in `dashboard/data/`
+  (48 cases, 45 metrics, 12 graph-vs-RAG rows); [`dashboard/DASHBOARD.md`](dashboard/DASHBOARD.md)
+  builds a one-page Power BI dashboard from them and lists the numbers it should show.
+
+![Power BI evaluation dashboard](dashboard/dashboard.png)
+
+The Power BI file is `dashboard/Ask the terms.pbix`. Its failures table shows the three failed
+questions all carried "high" stated confidence, which is why that label cannot be trusted.

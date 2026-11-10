@@ -1,0 +1,36 @@
+Summary,Issue Type,Priority,Labels,Labels,Description
+S1: Answer list questions across the document,Story,High,search,knowledge-graph,"As a support agent, I want to ask 'which services are free?' and get every one, so that I don't give a customer an incomplete answer.
+
+Acceptance criteria:
+- List, filter and maximum questions are routed to the knowledge-graph tools.
+- Recall >= 90% on the 6 list questions and 6 new held-out list questions (RAG today: 33.3%; graph tools: 100%).
+- Single-fact pass rate stays >= 93.8%."
+"S2: Confidence that predicts correctness, or no label",Story,High,trust,evaluation,"As an account holder, I want the confidence label to mean something, so that I know when to double-check.
+
+Acceptance criteria:
+- Replace the self-reported label with a signal measured on the golden set; show it only if AUROC >= 0.75 (today 0.50: 'high' on all 44 answers, including 3 wrong).
+- Until then the UI shows the quoted evidence and no confidence label."
+S3: Fix the scorer before changing the model,Task,High,evaluation,,"As the team, we want the pass rate to reflect what users would accept.
+
+Acceptance criteria:
+- Meaning-level check (normalised numbers/units + LLM judge) for paraphrase cases; every disagreement with the strict scorer reviewed by hand.
+- para-03 and para-04 (correct answers marked partial) pass; no wrong answer starts passing."
+S4: Find document-level facts such as the effective date,Story,Medium,retrieval,,"As an account holder, I want to ask when the terms took effect, so that I know they apply to me.
+
+Acceptance criteria:
+- fact-05 passes (today: wrongly answered 'Not found').
+- The chunk with the document header is retrievable; no other case regresses."
+S5: Answers in under 4 seconds,Story,Medium,performance,,"As a support agent, I want an answer in a few seconds, so that I can use it while the customer waits.
+
+Acceptance criteria:
+- Median latency < 4 s and p90 < 8 s on the golden set (today: median 8.4 s, 15 of 48 over 10 s).
+- Pass rate stays >= 93.8%."
+S6: Usage analytics without storing questions,Story,Medium,analytics,privacy,"As the product owner, I want to know how the bot is used and where it fails, so that I can prioritise with data.
+
+Acceptance criteria:
+- One structured log event per question: time, answer model, latency, answered/not found/refused, guardrail outcome. Never the question text.
+- Dashboard of daily questions, not-found rate and latency."
+S7: Improve exemption extraction,Story,Low,knowledge-graph,,"As a compliance reviewer, I want exemptions captured as reliably as charges.
+
+Acceptance criteria:
+- Exemption F1 >= 85% against hand-checked facts (today 57.1%; charges 100%)."
