@@ -12,3 +12,10 @@ __pycache__
 evals/
 tests/
 *.md
+.ci-venv
+.audit-venv
+test-results.xml
+azure-pipelines.yml
+k8s
+terraform
+Jenkinsfile

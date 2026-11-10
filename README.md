@@ -371,3 +371,16 @@ python -m evals.ner_eval        # uses the latest evals/results/*_kg.json for th
 
 The Power BI file is `dashboard/Ask the terms.pbix`. Its failures table shows the three failed
 questions all carried "high" stated confidence, which is why that label cannot be trusted.
+
+## Kubernetes, monitoring, Jenkins and Terraform
+
+- `ragbot/metrics.py` exposes Prometheus metrics on port 9100: questions by outcome, answer
+  latency, guardrail blocks by reason, uploads. **No question text is ever recorded** (a test checks
+  this). Implements backlog story S6.
+- [`k8s/`](k8s/README.md): Kustomize manifests for the app (probes, resource limits, non-root),
+  Prometheus with four alert rules unit-tested by `promtool`, and Grafana with a provisioned
+  dashboard. `kubectl apply -k k8s` deploys all of it.
+- [`Jenkinsfile`](Jenkinsfile): tests, alert-rule tests, image build, rollout to Kubernetes and a
+  smoke test, with automatic `rollout undo` if the rollout or smoke test fails.
+- [`terraform/`](terraform/README.md): the Cloud Run service, secrets and IAM roles as code,
+  imported from the hand-built deployment.

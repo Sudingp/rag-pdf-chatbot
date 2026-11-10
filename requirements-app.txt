@@ -10,3 +10,4 @@ sentencepiece
 openai>=1.40
 python-dotenv
 networkx>=3.0
+prometheus-client>=0.20     # /metrics for Prometheus (ragbot/metrics.py)

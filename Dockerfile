@@ -28,6 +28,8 @@ USER appuser
 # Cloud Run and Azure tell the container which port to use through $PORT.
 ENV PORT=8080
 EXPOSE 8080
+# Prometheus metrics (ragbot/metrics.py); set METRICS_PORT=0 to turn off.
+EXPOSE 9100
 HEALTHCHECK CMD python -c "import os,urllib.request; urllib.request.urlopen('http://localhost:' + os.environ['PORT'] + '/_stcore/health')"
 CMD streamlit run app.py --server.port=${PORT} --server.address=0.0.0.0 --server.headless=true --client.showErrorDetails=false \
     --server.maxUploadSize=${MAX_UPLOAD_MB:-10} --browser.gatherUsageStats=false

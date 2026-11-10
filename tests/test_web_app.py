@@ -29,6 +29,7 @@ streamlit_testing = pytest.importorskip("streamlit.testing.v1")
 def run_app(monkeypatch, **env):
     for k in ("APP_PASSWORD", "MAX_UPLOAD_MB", "DEFAULT_READER"):
         monkeypatch.delenv(k, raising=False)
+    monkeypatch.setenv("METRICS_PORT", "0")          # no /metrics server during tests
     for k, v in env.items():
         monkeypatch.setenv(k, v)
     at = streamlit_testing.AppTest.from_file(APP, default_timeout=30)

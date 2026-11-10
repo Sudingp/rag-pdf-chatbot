@@ -1,0 +1,98 @@
+# promtool test rules monitoring/alerts_test.yml
+rule_files:
+  - alerts.yml
+evaluation_interval: 1m
+
+tests:
+  - name: app down fires after 2 minutes, not before
+    interval: 1m
+    input_series:
+      - series: 'up{job="ragbot", instance="ragbot:9100"}'
+        values: '1 1 0 0 0 0'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: RagbotDown
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: RagbotDown
+        exp_alerts:
+          - exp_labels: {severity: critical, job: ragbot, instance: "ragbot:9100"}
+            exp_annotations:
+              summary: "Chatbot metrics endpoint unreachable for 2 minutes"
+              runbook: "kubectl -n ragbot get pods; kubectl -n ragbot logs deploy/ragbot --tail=50"
+
+  - name: errors above 10% fire, a quiet app does not
+    interval: 1m
+    input_series:
+      # 10 questions a minute, 2 of them errors (20%)
+      - series: 'ragbot_questions_total{reader="llm", outcome="answered"}'
+        values: '0+8x30'
+      - series: 'ragbot_questions_total{reader="llm", outcome="error"}'
+        values: '0+2x30'
+      # a second app instance with no traffic at all must not fire on its own
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: RagbotHighErrorRate
+        exp_alerts:
+          - exp_labels: {severity: critical}
+            exp_annotations:
+              summary: "More than 10% of questions are failing with an error"
+              runbook: "Check the LLM provider (rate limits, changed error messages: INC-003, INC-005)."
+
+  - name: no traffic means no error alert
+    interval: 1m
+    input_series:
+      - series: 'ragbot_questions_total{reader="llm", outcome="error"}'
+        values: '0x30'
+      - series: 'ragbot_questions_total{reader="llm", outcome="answered"}'
+        values: '0x30'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: RagbotHighErrorRate
+        exp_alerts: []
+
+  - name: slow answers fire when p90 is above 8 s
+    interval: 1m
+    input_series:
+      # every answer lands in the 10-15 s bucket
+      - series: 'ragbot_answer_latency_seconds_bucket{reader="llm", le="8.0"}'
+        values: '0x30'
+      - series: 'ragbot_answer_latency_seconds_bucket{reader="llm", le="10.0"}'
+        values: '0x30'
+      - series: 'ragbot_answer_latency_seconds_bucket{reader="llm", le="15.0"}'
+        values: '0+5x30'
+      - series: 'ragbot_answer_latency_seconds_bucket{reader="llm", le="+Inf"}'
+        values: '0+5x30'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: RagbotSlowAnswers
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations:
+              summary: "90th percentile answer time above 8 s (backlog S5 target)"
+
+  - name: fast answers do not fire
+    interval: 1m
+    input_series:
+      - series: 'ragbot_answer_latency_seconds_bucket{reader="llm", le="2.0"}'
+        values: '0+5x30'
+      - series: 'ragbot_answer_latency_seconds_bucket{reader="llm", le="+Inf"}'
+        values: '0+5x30'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: RagbotSlowAnswers
+        exp_alerts: []
+
+  - name: burst of prompt injections
+    interval: 1m
+    input_series:
+      - series: 'ragbot_guardrail_blocks_total{reader="llm", reason="prompt_injection"}'
+        values: '0 1 2 3 4 5 6 7 8'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: RagbotPromptInjectionBurst
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations:
+              summary: "More than 5 prompt-injection attempts blocked in 15 minutes"
+              runbook: "The guardrail is working; check whether one client is probing the app."

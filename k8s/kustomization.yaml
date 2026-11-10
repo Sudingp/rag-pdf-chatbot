@@ -1,0 +1,29 @@
+# Everything in one command:  kubectl apply -k k8s/
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: ragbot
+resources:
+  - namespace.yaml
+  - ragbot.yaml
+  - prometheus.yaml
+  - grafana.yaml
+configMapGenerator:
+  - name: ragbot-config
+    literals:
+      - LLM_BASE_URL=https://api.groq.com/openai/v1
+      - LLM_MODEL=openai/gpt-oss-20b
+      - DEFAULT_READER=llm
+      - METRICS_PORT=9100
+  - name: prometheus-config
+    files:
+      - monitoring/prometheus.yml
+      - monitoring/alerts.yml
+  - name: grafana-datasources
+    files:
+      - monitoring/grafana/datasource.yml
+  - name: grafana-dashboard-provider
+    files:
+      - monitoring/grafana/dashboards.yml
+  - name: grafana-dashboards
+    files:
+      - monitoring/grafana/ask-the-terms-live.json

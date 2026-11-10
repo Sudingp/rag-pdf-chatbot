@@ -1,0 +1,53 @@
+# The chatbot. Image built locally from the repo's Dockerfile (see k8s/README.md).
+# Secrets are NOT in this repo: create them with kubectl (k8s/README.md, step 3).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ragbot
+  labels: {app: ragbot}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: ragbot}
+  template:
+    metadata:
+      labels: {app: ragbot}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000              # appuser, created in the Dockerfile
+      containers:
+        - name: ragbot
+          image: rag-pdf-chatbot:local
+          imagePullPolicy: IfNotPresent   # use the image built on this machine, don't pull
+          ports:
+            - {name: http, containerPort: 8080}
+            - {name: metrics, containerPort: 9100}
+          envFrom:
+            - configMapRef: {name: ragbot-config}
+            - secretRef: {name: ragbot-secrets}
+          resources:
+            requests: {cpu: 250m, memory: 1Gi}
+            limits: {memory: 2Gi}          # same memory as the Cloud Run service
+          startupProbe:                    # models load on start; allow up to 3 minutes
+            httpGet: {path: /_stcore/health, port: http}
+            periodSeconds: 5
+            failureThreshold: 36
+          readinessProbe:
+            httpGet: {path: /_stcore/health, port: http}
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /_stcore/health, port: http}
+            periodSeconds: 20
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ragbot
+  labels: {app: ragbot}
+spec:
+  selector: {app: ragbot}
+  ports:
+    - {name: http, port: 8080, targetPort: http}
+    - {name: metrics, port: 9100, targetPort: metrics}

@@ -1,7 +1,20 @@
+import time
+
 import streamlit as st
 
 from ragbot import web_guard as guard
+from ragbot.metrics import AppMetrics, start_exporter
 from ragbot.pipeline import RagPipeline, load_models, read_pdf
+
+@st.cache_resource
+def get_metrics():
+    # One registry and one /metrics server per process, however often Streamlit reruns the script.
+    m = AppMetrics()
+    start_exporter(m)
+    return m
+
+
+metrics = get_metrics()
 
 st.title("📄 PDF RAG Chatbot")
 
@@ -40,7 +53,12 @@ with st.sidebar:
     )
 
 if uploaded_file:
-    if uploaded_file.size > guard.upload_limit_mb() * 1024 * 1024:
+    upload_key = (uploaded_file.name, uploaded_file.size)        # count each upload once, not per rerun
+    too_large = uploaded_file.size > guard.upload_limit_mb() * 1024 * 1024
+    if st.session_state.get("last_upload") != upload_key:
+        metrics.record_upload(not too_large)
+        st.session_state["last_upload"] = upload_key
+    if too_large:
         st.error(f"That PDF is larger than {guard.upload_limit_mb()} MB.")
         st.stop()
     try:
@@ -67,13 +85,18 @@ if uploaded_file:
                 st.stop()
             st.session_state["asked"] = asked + 1
             st.session_state["last_question"] = question
+        started = time.monotonic()
         try:
             answer = rag.ask(question)
         except Exception as err:  # never show a traceback on the public page
+            metrics.record_error(reader, time.monotonic() - started)
             print(f"rag.ask failed: {type(err).__name__}: {err}", flush=True)  # goes to Cloud Run logs
             st.error("Sorry, the answer model failed on this question. Please try again, "
                      "or pick another answer model in the sidebar.")
             st.stop()
+        if question != st.session_state.get("last_recorded"):     # count a question once, not per rerun
+            metrics.record_answer(reader, answer, time.monotonic() - started)
+            st.session_state["last_recorded"] = question
         st.write("### Answer:")
         st.write(answer.text)
         st.caption(f"Confidence: {answer.score:.2f}")

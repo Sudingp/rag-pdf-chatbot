@@ -1,0 +1,42 @@
+# Alert rules for the chatbot. Thresholds come from the golden-set results and the backlog
+# (docs/PRODUCT.md): p90 latency target 8 s (S5), hallucination guardrails must keep working.
+groups:
+  - name: ragbot
+    rules:
+      - alert: RagbotDown
+        expr: up{job="ragbot"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Chatbot metrics endpoint unreachable for 2 minutes"
+          runbook: "kubectl -n ragbot get pods; kubectl -n ragbot logs deploy/ragbot --tail=50"
+
+      - alert: RagbotHighErrorRate
+        expr: |
+          sum(rate(ragbot_questions_total{outcome="error"}[10m]))
+            / clamp_min(sum(rate(ragbot_questions_total[10m])), 1e-9) > 0.1
+          and sum(rate(ragbot_questions_total[10m])) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "More than 10% of questions are failing with an error"
+          runbook: "Check the LLM provider (rate limits, changed error messages: INC-003, INC-005)."
+
+      - alert: RagbotSlowAnswers
+        expr: |
+          histogram_quantile(0.9, sum by (le) (rate(ragbot_answer_latency_seconds_bucket[10m]))) > 8
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "90th percentile answer time above 8 s (backlog S5 target)"
+
+      - alert: RagbotPromptInjectionBurst
+        expr: sum(increase(ragbot_guardrail_blocks_total{reason="prompt_injection"}[15m])) > 5
+        labels:
+          severity: warning
+        annotations:
+          summary: "More than 5 prompt-injection attempts blocked in 15 minutes"
+          runbook: "The guardrail is working; check whether one client is probing the app."
