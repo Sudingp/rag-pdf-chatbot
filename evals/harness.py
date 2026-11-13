@@ -200,13 +200,14 @@ SWEEP_GRIDS = {"extractive": [
     (500, 100, 4, None),
     (900, 150, 4, 0.6),   # drop "low" confidence answers
 ]}
-SWEEP_GRIDS["llm"] = SWEEP_GRIDS["azure"]
+SWEEP_GRIDS["llm"] = SWEEP_GRIDS["vertex"] = SWEEP_GRIDS["azure"]
 SWEEP_GRID = SWEEP_GRIDS["extractive"]
 # Settings used for --compare-readers: each reader at a fair configuration
 COMPARE = {"extractive": (900, 150, 6, 0.3), "generative": (500, 100, 3, None),
-           "azure": (900, 150, 4, None), "llm": (900, 150, 4, None)}
+           "azure": (900, 150, 4, None), "llm": (900, 150, 4, None),
+           "vertex": (900, 150, 4, None)}
 # Hosted readers only run when their settings exist (a .env file is read too)
-NEEDS_ENV = {"azure": "AZURE_OPENAI_ENDPOINT", "llm": "LLM_BASE_URL"}
+NEEDS_ENV = {"azure": "AZURE_OPENAI_ENDPOINT", "llm": "LLM_BASE_URL", "vertex": "VERTEX_PROJECT"}
 
 SUMMARY_HEADER = ("| reader | chunk | overlap | k | min_score | pass | EM | F1 | retrieval | "
                   "halluc. | guardrail breach | wrong abstain | grounded |\n"
@@ -247,7 +248,7 @@ def main(argv=None, build_pipeline: Optional[Callable] = None) -> int:
     p.add_argument("--overlap", type=int, default=0)
     p.add_argument("--k", type=int, default=6)
     p.add_argument("--min-score", type=float, default=None)
-    p.add_argument("--reader", choices=["extractive", "generative", "azure", "llm"], default="extractive")
+    p.add_argument("--reader", choices=["extractive", "generative", "azure", "llm", "vertex"], default="extractive")
     p.add_argument("--compare-readers", action="store_true",
                    help="Run both readers at their recommended settings and compare")
     p.add_argument("--sweep", action="store_true", help="Run the settings grid and compare")

@@ -1,0 +1,85 @@
+# CI/CD for the RAG PDF chatbot on Azure Pipelines (Azure DevOps).
+#
+#   Test      -> install test dependencies in a clean venv, run pytest, publish JUnit results
+#   Security  -> install the app's own dependencies (as shipped in the Docker image) and scan
+#                them for known vulnerabilities with pip-audit
+#   Deploy    -> main branch only, after a manual approval on the "production" environment:
+#                build the image in Cloud Build and roll out a new Cloud Run revision, then
+#                smoke-test the live health endpoint
+#
+# Runs on a self-hosted Windows agent (pool "Default"); see DEPLOYMENT.md for setup.
+# No secrets live here: the API key and app password stay in Google Secret Manager, and
+# deploying to the existing service keeps its env vars, secrets, memory and scaling settings.
+
+trigger:
+  branches:
+    include: [main]
+
+pr:
+  branches:
+    include: [main]
+
+pool:
+  name: Default
+
+variables:
+  SERVICE: rag-pdf-chatbot
+  REGION: asia-south1
+  APP_URL: https://rag-pdf-chatbot-631970366044.asia-south1.run.app
+  PIP_DISABLE_PIP_VERSION_CHECK: 1
+
+stages:
+- stage: Test
+  displayName: Tests
+  jobs:
+  - job: pytest
+    displayName: pytest
+    steps:
+    - script: |
+        python -m venv .ci-venv || exit /b 1
+        .ci-venv\Scripts\python -m pip install -q -r requirements-dev.txt || exit /b 1
+        .ci-venv\Scripts\python -m spacy download en_core_web_sm || exit /b 1
+      displayName: Install test dependencies
+    - script: .ci-venv\Scripts\python -m pytest -q --junitxml=test-results.xml
+      displayName: Run tests
+    - task: PublishTestResults@2
+      displayName: Publish test results
+      condition: succeededOrFailed()
+      inputs:
+        testResultsFormat: JUnit
+        testResultsFiles: test-results.xml
+        testRunTitle: pytest
+
+- stage: Security
+  displayName: Dependency scan
+  dependsOn: Test
+  jobs:
+  - job: pip_audit
+    displayName: pip-audit
+    steps:
+    - script: |
+        python -m venv .audit-venv || exit /b 1
+        .audit-venv\Scripts\python -m pip install -q pip-audit || exit /b 1
+        .audit-venv\Scripts\python -m pip install -q torch --index-url https://download.pytorch.org/whl/cpu || exit /b 1
+        .audit-venv\Scripts\python -m pip install -q -r requirements-app.txt || exit /b 1
+      displayName: Install the app's dependencies
+    - script: .audit-venv\Scripts\python -m pip_audit --progress-spinner off
+      displayName: Scan for known vulnerabilities
+
+- stage: Deploy
+  displayName: Deploy to Cloud Run
+  dependsOn: [Test, Security]
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  jobs:
+  - deployment: cloud_run
+    displayName: Cloud Run
+    environment: production
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+          - script: call gcloud run deploy $(SERVICE) --source . --region $(REGION) --quiet
+            displayName: Build image and roll out a new revision
+          - script: curl --fail --silent --show-error --retry 5 --retry-delay 10 $(APP_URL)/_stcore/health
+            displayName: Smoke test the live health endpoint

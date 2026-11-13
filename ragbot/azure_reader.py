@@ -276,11 +276,7 @@ def make_azure_reader(client, deployment: str, temperature: float = 0.0) -> Call
                 if getattr(msg, "tool_calls", None):
                     messages.append({
                         "role": "assistant", "content": msg.content or "",
-                        "tool_calls": [
-                            {"id": tc.id, "type": "function",
-                             "function": {"name": tc.function.name, "arguments": tc.function.arguments}}
-                            for tc in msg.tool_calls
-                        ],
+                        "tool_calls": [_tool_call_dict(tc) for tc in msg.tool_calls],
                     })
                     for tc in msg.tool_calls:
                         try:
@@ -320,6 +316,18 @@ def make_azure_reader(client, deployment: str, temperature: float = 0.0) -> Call
                 "truncated": False, "trace": trace}
 
     return answer
+
+
+def _tool_call_dict(tc) -> dict:
+    """A tool call as it must be sent back on the next turn. Provider-specific fields are kept:
+    Gemini 3 on Vertex AI puts a "thought signature" in extra_content and rejects the follow-up
+    request (400, "missing a thought_signature") if it is dropped."""
+    out = {"id": tc.id, "type": "function",
+           "function": {"name": tc.function.name, "arguments": tc.function.arguments}}
+    for key, value in (getattr(tc, "model_extra", None) or {}).items():
+        if value is not None and key not in out:
+            out[key] = value
+    return out
 
 
 class _Recovered(Exception):

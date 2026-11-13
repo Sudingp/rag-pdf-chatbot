@@ -11,3 +11,4 @@ python-dotenv
 deepeval>=4.3,<5        # LLM-as-judge metrics (evals/deepeval_eval.py)
 networkx>=3.0            # knowledge graph (ragbot/kg.py)
 prometheus-client>=0.20
+google-auth[requests]>=2.30   # Gemini on Vertex AI (ragbot/vertex_reader.py)

@@ -197,7 +197,7 @@ def load_generative_reader(model_name: str = GEN_MODEL_NAME, max_new_tokens: int
     return answer
 
 
-READERS = ("extractive", "generative", "azure", "llm")
+READERS = ("extractive", "generative", "azure", "llm", "vertex")
 
 
 def load_reader(reader: str) -> QAModel:
@@ -211,6 +211,9 @@ def load_reader(reader: str) -> QAModel:
     if reader == "llm":
         from ragbot.azure_reader import load_compatible_reader
         return load_compatible_reader()
+    if reader == "vertex":
+        from ragbot.vertex_reader import load_vertex_reader
+        return load_vertex_reader()
     raise ValueError(f"Unknown reader {reader!r}; use one of {', '.join(READERS)}")
 
 

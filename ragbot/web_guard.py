@@ -15,7 +15,7 @@ import hmac
 import os
 from typing import Mapping, Optional
 
-READERS = ("extractive", "generative", "llm", "azure")
+READERS = ("extractive", "generative", "llm", "azure", "vertex")
 
 
 def setting(name: str, default: str, env: Optional[Mapping[str, str]] = None) -> str:

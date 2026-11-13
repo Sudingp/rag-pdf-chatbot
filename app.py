@@ -45,7 +45,8 @@ with st.sidebar:
         format_func=lambda r: {"extractive": "DistilBERT (copies a span)",
                                "generative": "Flan-T5 (writes the answer)",
                                "llm": "Hosted LLM: Gemini / Groq / Ollama (see .env)",
-                               "azure": "Azure OpenAI GPT (needs API key)"}[r],
+                               "azure": "Azure OpenAI GPT (needs API key)",
+                               "vertex": "Gemini on Vertex AI (Google Cloud)"}[r],
     )
     overlap = st.slider("Chunk overlap (characters)", 0, 400, 0, step=50)
     min_score = st.slider(
@@ -67,7 +68,7 @@ if uploaded_file:
         st.error(str(err))
         st.stop()
     # Flan-T5 reads at most 512 tokens, so it gets smaller, fewer chunks.
-    size, k = {"extractive": (900, 6), "generative": (500, 3), "azure": (900, 4), "llm": (900, 4)}[reader]
+    size, k = {"extractive": (900, 6), "generative": (500, 3), "azure": (900, 4), "llm": (900, 4), "vertex": (900, 4)}[reader]
     rag = RagPipeline(
         embed, qa, chunk_size=size, k=k, overlap=overlap,
         min_score=min_score if min_score > 0 else None,

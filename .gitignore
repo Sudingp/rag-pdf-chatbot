@@ -8,3 +8,8 @@ evals/results/*.json
 
 # Secrets
 .env
+
+# CI pipeline workspaces and reports
+.ci-venv/
+.audit-venv/
+test-results.xml

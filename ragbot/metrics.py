@@ -34,7 +34,7 @@ class AppMetrics:
                                  ["reader", "reason"], registry=self.registry)
         self.uploads = Counter("ragbot_pdf_uploads_total", "PDF uploads", ["result"],
                                registry=self.registry)
-        for reader in ("extractive", "generative", "llm", "azure"):   # show zeros, not "no data"
+        for reader in ("extractive", "generative", "llm", "azure", "vertex"):   # show zeros, not "no data"
             for outcome in OUTCOMES:
                 self.questions.labels(reader, outcome)
             self.latency.labels(reader)

@@ -69,6 +69,16 @@ answer text actually appears in the retrieved context.
 3. `pip install -r requirements.txt`, then pick **Azure OpenAI GPT** in the app sidebar, or run
    `python -m evals.harness --reader azure` / `python -m evals.harness --compare-readers` (every reader whose settings exist).
 
+### Set up Gemini on Vertex AI (reader `vertex`)
+Uses Google Cloud's Vertex AI, with no API key: the reader authenticates with Application Default
+Credentials and sends a short-lived OAuth token, refreshed before it expires (`ragbot/vertex_reader.py`).
+1. Enable the API once: `gcloud services enable aiplatform.googleapis.com`.
+2. Locally: `gcloud auth application-default login`, then in `.env` set `VERTEX_PROJECT` (your project
+   ID); optional `VERTEX_LOCATION` (default `global`) and `VERTEX_MODEL` (default `google/gemini-3.5-flash`).
+3. Pick **Gemini on Vertex AI** in the app sidebar, or run `python -m evals.harness --reader vertex`.
+4. On Cloud Run, grant the service's runtime account the **Vertex AI User** role and set the same
+   variables (DEPLOYMENT.md, section 8). Nothing secret is stored.
+
 A full harness run is 48 questions: a few cents on a mini model, and within the free tiers of Gemini and Groq.
 
 ## Results (live run, 23 October 2026)
